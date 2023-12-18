@@ -28,22 +28,16 @@ use crate::collection::types::CollectionError;
 #[openbrush::trait_definition]
 pub trait CollectionTrait:
     Storage<psp34::Data>
-    + Storage<ownable::Data>
+    //+ Storage<ownable::Data>
     // + Storage<metadata::Data>
-    + PSP34Impl
-    + PSP34MetadataImpl
-    + psp34::extensions::metadata::Internal
+    //+ PSP34Impl
+    //+ PSP34MetadataImpl
+    //+ psp34::extensions::metadata::Internal
 {
-    
     #[ink(message)]
-    fn mint_collection(&mut self, id: u32, name: String, collection_type: String) -> Result<u32, CollectionError> {
-        let caller = Self::env().caller();
-        
-        self._mint_to(caller, Id::U32(id)).map_err(|_| CollectionError::CannotMint)?;
-
-        self._set_attribute(Id::U32(id), "name".into(), name);
-        self._set_attribute(Id::U32(id), "type".into(), collection_type);
-
-        Ok(id)
+    fn set_base_uri(&mut self, uri: String) -> Result<(), CollectionError>{
+        Ok(())
+    
     }
+
 }
