@@ -11,6 +11,7 @@ mod nft_collection_factory {
     };
     use ink::env::CallFlags;
     use ink::ToAccountId;
+    use ink::prelude::vec;
     use my_collection::CollectionRef;
     use openbrush::contracts::psp34::Id;
     use openbrush::contracts::traits::psp34::*;
@@ -153,7 +154,6 @@ mod nft_collection_factory {
             &mut self,
             //nft_contract_address: AccountId,
             token_id: Id,
-            receiver: AccountId,
         ) -> Result<(), CollectionFactoryError> {
 
             
