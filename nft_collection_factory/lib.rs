@@ -3,7 +3,6 @@
 #[openbrush::implementation(PSP34, PSP34Metadata, PSP34Enumerable, Ownable)]
 #[openbrush::contract]
 mod nft_collection_factory {
-
     use common_traits::nft_collection_factory::impls::{
         collectionfactorytrait_external, CollectionFactoryTrait,
     };
@@ -11,7 +10,8 @@ mod nft_collection_factory {
         CollectionFactoryData, CollectionFactoryError, CollectionInfo,
     };
     use ink::env::CallFlags;
-
+    use ink::ToAccountId;
+    use my_collection::CollectionRef;
     use openbrush::contracts::psp34::Id;
     use openbrush::contracts::traits::psp34::*;
     use openbrush::{
@@ -24,7 +24,6 @@ mod nft_collection_factory {
         },
         traits::Storage,
     };
-
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
@@ -49,69 +48,66 @@ mod nft_collection_factory {
     impl NftCollectionFactory {
         /// Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
-        pub fn new() -> Self {
-            let instance = NftCollectionFactory::default();
+        pub fn new(collection_code_hash: Hash, creation_fee: Balance) -> Self {
+            let mut instance = NftCollectionFactory::default();
 
+            instance
+                .initialize(collection_code_hash, creation_fee)
+                .ok()
+                .unwrap();
 
             instance
         }
 
         #[ink(message)]
+        pub fn initialize(
+            &mut self,
+            collection_code_hash: Hash,
+            creation_fee: Balance,
+        ) -> Result<(), CollectionFactoryError> {
+            self.collection_data.collection_code_hash = collection_code_hash;
+            self.collection_data.creation_fee = creation_fee;
+
+            Ok(())
+        }
+
+        #[ink(message)]
+        #[ink(payable)]
         pub fn create_collection(
             &mut self,
-            //collection_code_hash: Hash,
             name: String,
-            collection_type: String,
+            symbol: String,
             base_uri: String,
-            record_id: u32,
+            mint_to: AccountId,
         ) -> Result<(), CollectionFactoryError> {
             let creator = Self::env().caller();
 
-            let collection_info = CollectionInfo {
-                creator: Some(creator),
-                record_id,
-            };
-            let id = self.collection_data.current_id;
+            let id = self.collection_data.collection_count;
 
-            // let collection_contract = CollectionRef::new()
-            //     .code_hash(collection_code_hash)
-            //     .endowment(0)
-            //     .salt_bytes(id.to_le_bytes())
-            //     .instantiate();
-            // let contract_account: AccountId = collection_contract.to_account_id();
-            self.mint_collection(name, collection_type, base_uri)?;
-            // self.collection_data
-            //     .collection_info
-            //     .insert(&contract_account, &collection_info);
-            // self.collection_data
-            //     .record_id_collection
-            //     .insert(&record_id, &contract_account);
-            // let mut collections_of_caller = self
-            //     .collection_data
-            //     .creator_collection
-            //     .get(&creator)
-            //     .unwrap_or_default();
-            // collections_of_caller.push(contract_account);
-            // self.collection_data
-            //     .creator_collection
-            //     .insert(&creator, &collections_of_caller);
+            let collection_contract = CollectionRef::new(creator, name.clone(), symbol)
+                .code_hash(self.collection_data.collection_code_hash)
+                .endowment(0)
+                .salt_bytes(id.to_le_bytes())
+                .instantiate();
+            let contract_account: AccountId = collection_contract.to_account_id();
+            self.collection_data.collection_count += 1;
 
             // Check if this contract has been approved to be able to transfer the NFT on owner behalf
             let allowance = PSP34Ref::allowance(
-                &self.env().account_id(),
+                &contract_account,
                 creator,
                 self.env().account_id(),
-                Some(Id::U32(id)),
+                Some(Id::U64(id)),
             );
             if !allowance {
                 return Err(CollectionFactoryError::NotApproved);
             }
 
-            // Transfer Token from Caller to Marketplace Contract
+            // // Transfer Token from Caller to Plat Contract
             if PSP34Ref::transfer_builder(
-                &self.env().account_id(),
+                &contract_account,
                 self.env().account_id(),
-                Id::U32(id.clone()),
+                Id::U64(id.clone()),
                 Vec::<u8>::new(),
             )
             .call_flags(CallFlags::default().set_allow_reentry(true))
@@ -121,6 +117,34 @@ mod nft_collection_factory {
                 return Err(CollectionFactoryError::CannotTransfer);
             }
 
+            let creator_collections = self.collection_data.creator_collections.get(&creator);
+            // Existing collection for creator
+            if let Some(mut collections) = creator_collections {
+                collections.push(contract_account);
+                self.collection_data
+                    .creator_collections
+                    .insert(&creator, &collections);
+            } else {
+                // First collection for that creator
+                let collections = vec![contract_account];
+                self.collection_data
+                    .creator_collections
+                    .insert(&creator, &collections);
+            }
+            let new_collection = CollectionInfo {
+                name,
+                uri: base_uri,
+                nft_collection_address: Some(contract_account),
+                mint_to: Some(mint_to),
+                creator: Some(creator),
+            };
+            self.collection_data
+                .collection_info
+                .insert(&contract_account, &new_collection);
+
+            self.collection_data
+                .collection_by_id
+                .insert(&self.collection_data.collection_count, &contract_account);
             Ok(())
         }
 
@@ -131,19 +155,8 @@ mod nft_collection_factory {
             token_id: Id,
             receiver: AccountId,
         ) -> Result<(), CollectionFactoryError> {
-            if PSP34Ref::transfer_builder(
-                &self.env().account_id(),
-                receiver,
-                token_id.clone(),
-                Vec::<u8>::new(),
-            )
-            .call_flags(CallFlags::default().set_allow_reentry(true))
-            .invoke()
-            .is_err()
-            {
-                return Err(CollectionFactoryError::ClaimNFTError);
-            }
 
+            
             Ok(())
         }
     }

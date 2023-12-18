@@ -1,16 +1,22 @@
 use openbrush::contracts::psp34::Id;
-use openbrush::traits::{AccountId, Balance, String};
+use openbrush::traits::{AccountId, Balance, String, Hash};
 use ink::prelude::vec::Vec;
 
 #[cfg(feature = "std")]
 use ink::storage::traits::StorageLayout;
 use openbrush::storage::Mapping;
 
+
+
+
 #[derive(Default, Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(StorageLayout, scale_info::TypeInfo))]
 pub struct CollectionInfo {
-    pub record_id: u32,
+    pub name: String,
+    pub uri: String,
+    pub mint_to: Option<AccountId>,
     pub creator: Option<AccountId>,
+    pub nft_collection_address:Option<AccountId>
 }
 
 #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -23,12 +29,14 @@ pub struct CreatorInfo {
 #[derive(Default, Debug)]
 #[openbrush::storage_item]
 pub struct CollectionFactoryData {
-    pub collection_address: Option<AccountId>,
     /// Collection Info : Collection Contract => CollectionInfo
     pub collection_info: Mapping<AccountId, CollectionInfo>,
-    pub record_id_collection: Mapping<u32, AccountId>,
-    pub creator_collection: Mapping<AccountId, Vec<AccountId>>,
-    pub current_id: u32,
+    pub collection_by_id: Mapping<u64, AccountId>,
+    pub creator_collections: Mapping<AccountId, Vec<AccountId>>,
+    pub collection_count: u64,
+    pub collection_code_hash : Hash,
+    pub creation_fee: Balance,
+
 }
 
 /// The Adventure error type. Contract will throw one of this errors.

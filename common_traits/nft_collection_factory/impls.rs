@@ -2,7 +2,7 @@ use ink::prelude::vec::Vec;
 
 use openbrush::{
     modifiers,
-    traits::{AccountId, Storage, String},
+    traits::{AccountId, Storage, String, Hash},
 };
 
 use openbrush::contracts::{
@@ -33,7 +33,7 @@ pub trait CollectionFactoryTrait:
         &self,
         creator: AccountId,
     ) -> Result<Vec<AccountId>, CollectionFactoryError> {
-        let collections_by_creator = self.data::<CollectionFactoryData>().creator_collection.get(&creator).unwrap_or_default();
+        let collections_by_creator = self.data::<CollectionFactoryData>().creator_collections.get(&creator).unwrap_or_default();
 
         Ok(collections_by_creator)
     }
@@ -41,41 +41,27 @@ pub trait CollectionFactoryTrait:
     #[ink(message)]
     fn get_current_id(
         &self
-    ) -> Result<u32, CollectionFactoryError> {
-        let id = self.data::<CollectionFactoryData>().current_id;
+    ) -> Result<u64, CollectionFactoryError> {
+        let id = self.data::<CollectionFactoryData>().collection_count;
 
         Ok(id)
     }
 
-
     #[ink(message)]
-    fn get_all_collection_info_by_creator(
-        &self,
-        creator: AccountId,
-    ) -> Result<Vec<CollectionInfo>, CollectionFactoryError> {
-        let mut collections = Vec::new();
-        // get contract collection from creator
-        let collections_by_creator = self.data::<CollectionFactoryData>().creator_collection.get(&creator).unwrap_or_default();
-        for collection in collections_by_creator{
-            let collection_info = self.data::<CollectionFactoryData>().collection_info.get(&collection).unwrap_or_default();
-            collections.push(collection_info);
-        }
-        
-        Ok(collections)
+    fn get_collection_by_nft_address(
+        &self, nft_contract_address: AccountId
+    ) -> Option<CollectionInfo> {
+        self.data::<CollectionFactoryData>().collection_info.get(&nft_contract_address)
     }
-
+    
     #[ink(message)]
-    fn mint_collection(&mut self, name: String, collection_type: String, base_uri: String) -> Result<(), CollectionFactoryError> {
-        let caller = Self::env().caller();
-        let id = self.data::<CollectionFactoryData>().current_id;
-        self._set_attribute(Id::U32(id), "name".into(), name.clone());
-        self._set_attribute(Id::U32(id), "type".into(), collection_type.clone());
-        self._set_attribute(Id::U32(id), "uri".into(), base_uri.clone());
-        self._mint_to(caller, Id::U32(id)).map_err(|_| CollectionFactoryError::CannotMint)?;
-
-
-        self.data::<CollectionFactoryData>().current_id = id + 1;
-
+    fn get_contract_by_id(&self, id: u64) -> Option<AccountId> {
+        self.data::<CollectionFactoryData>().collection_by_id.get(&id)
+    }
+    
+    #[ink(message)]
+    fn set_collection_hash(&mut self, collection_hash: Hash) -> Result<(),CollectionFactoryError> {
+        self.data::<CollectionFactoryData>().collection_code_hash = collection_hash;
         Ok(())
     }
 
