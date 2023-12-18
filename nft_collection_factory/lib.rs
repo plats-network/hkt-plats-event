@@ -1,8 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-#[openbrush::implementation(PSP34, PSP34Metadata, PSP34Enumerable, Ownable)]
+#[openbrush::implementation(Ownable)]
 #[openbrush::contract]
 mod nft_collection_factory {
+    use common_traits::collection::traits::CollectionTraitRef;
     use common_traits::nft_collection_factory::impls::{
         collectionfactorytrait_external, CollectionFactoryTrait,
     };
@@ -10,21 +11,13 @@ mod nft_collection_factory {
         CollectionFactoryData, CollectionFactoryError, CollectionInfo,
     };
     use ink::env::CallFlags;
+    use ink::prelude::{vec, vec::Vec};
     use ink::ToAccountId;
-    use ink::prelude::vec;
     use my_collection::CollectionRef;
     use openbrush::contracts::psp34::Id;
     use openbrush::contracts::traits::psp34::*;
-    use openbrush::{
-        contracts::{
-            ownable, psp34,
-            psp34::{
-                extensions::{enumerable, metadata},
-                PSP34Impl,
-            },
-        },
-        traits::Storage,
-    };
+    use openbrush::{contracts::ownable, traits::Storage};
+    use openbrush::traits::String;
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
@@ -32,13 +25,7 @@ mod nft_collection_factory {
     #[derive(Default, Storage)]
     pub struct NftCollectionFactory {
         #[storage_field]
-        psp34: psp34::Data,
-        #[storage_field]
         ownable: ownable::Data,
-        #[storage_field]
-        metadata: metadata::Data,
-        #[storage_field]
-        enumerable: enumerable::Data,
         #[storage_field]
         collection_data: CollectionFactoryData,
     }
@@ -67,6 +54,7 @@ mod nft_collection_factory {
             creation_fee: Balance,
         ) -> Result<(), CollectionFactoryError> {
             self.collection_data.collection_code_hash = collection_code_hash;
+            self.collection_data.collection_count = 0;
             self.collection_data.creation_fee = creation_fee;
 
             Ok(())
@@ -79,44 +67,17 @@ mod nft_collection_factory {
             name: String,
             symbol: String,
             base_uri: String,
-            mint_to: AccountId,
         ) -> Result<(), CollectionFactoryError> {
             let creator = Self::env().caller();
-
-            let id = self.collection_data.collection_count;
 
             let collection_contract = CollectionRef::new(creator, name.clone(), symbol)
                 .code_hash(self.collection_data.collection_code_hash)
                 .endowment(0)
-                .salt_bytes(id.to_le_bytes())
+                .salt_bytes(self.collection_data.collection_count.to_le_bytes())
                 .instantiate();
             let contract_account: AccountId = collection_contract.to_account_id();
             self.collection_data.collection_count += 1;
 
-            // Check if this contract has been approved to be able to transfer the NFT on owner behalf
-            let allowance = PSP34Ref::allowance(
-                &contract_account,
-                creator,
-                self.env().account_id(),
-                Some(Id::U64(id)),
-            );
-            if !allowance {
-                return Err(CollectionFactoryError::NotApproved);
-            }
-
-            // // Transfer Token from Caller to Plat Contract
-            if PSP34Ref::transfer_builder(
-                &contract_account,
-                self.env().account_id(),
-                Id::U64(id.clone()),
-                Vec::<u8>::new(),
-            )
-            .call_flags(CallFlags::default().set_allow_reentry(true))
-            .invoke()
-            .is_err()
-            {
-                return Err(CollectionFactoryError::CannotTransfer);
-            }
 
             let creator_collections = self.collection_data.creator_collections.get(&creator);
             // Existing collection for creator
@@ -136,7 +97,6 @@ mod nft_collection_factory {
                 name,
                 uri: base_uri,
                 nft_collection_address: Some(contract_account),
-                mint_to: Some(mint_to),
                 creator: Some(creator),
             };
             self.collection_data
@@ -150,14 +110,68 @@ mod nft_collection_factory {
         }
 
         #[ink(message)]
+        pub fn distribute_nft(
+            &mut self,
+            nft_contract_address: AccountId,
+            token_id: u64,
+        ) -> Result<(), CollectionFactoryError> {
+            let caller = Self::env().caller();
+            let collection_info = self
+                .collection_data
+                .collection_info
+                .get(&nft_contract_address);
+            if let Some(collection) = collection_info {
+                let creator = collection.creator.unwrap();
+                assert!(caller == creator, "You are not owner");
+                // Check if this contract has been approved to be able to transfer the NFT on owner behalf
+                let allowance = CollectionTraitRef::allowance(
+                    &nft_contract_address,
+                    caller,
+                    self.env().account_id(),
+                    Some(Id::U64(token_id.clone())),
+                );
+                if !allowance {
+                    return Err(CollectionFactoryError::NotApproved);
+                }
+                if PSP34Ref::transfer_builder(
+                    &nft_contract_address,
+                    self.env().account_id(),
+                    Id::U64(token_id),
+                    Vec::<u8>::new(),
+                )
+                .call_flags(CallFlags::default().set_allow_reentry(true))
+                .invoke()
+                .is_err()
+                {
+                    return Err(CollectionFactoryError::CannotTransfer);
+                }
+            } else {
+                return Err(CollectionFactoryError::CollectionNotExist);
+            }
+
+            Ok(())
+        }
+
+        #[ink(message)]
         pub fn claim_nft(
             &mut self,
-            //nft_contract_address: AccountId,
-            token_id: Id,
+            nft_contract_address: AccountId,
+            token_id: u64,
         ) -> Result<(), CollectionFactoryError> {
+            let caller = self.env().caller();
 
-            
-            Ok(())
+            if CollectionTraitRef::transfer(
+                &nft_contract_address,
+                caller,
+                Id::U64(token_id),
+                Vec::<u8>::new(),
+            )
+            .is_err()
+            {
+                return Err(CollectionFactoryError::CannotTransfer);
+            } else {
+                return Ok(());
+            }
         }
     }
 }

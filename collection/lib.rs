@@ -7,13 +7,15 @@ pub use self::my_collection::{Collection, CollectionRef};
 pub mod my_collection {
     use common_traits::collection::impls::CollectionTrait;
     use common_traits::collection::traits::collectiontrait_external;
+    use common_traits::collection::types::{CollectionData, CollectionError};
     use openbrush::{
         contracts::ownable::*,
+        contracts::psp34,
         contracts::psp34::extensions::{burnable::*, enumerable::*, metadata::*},
         traits::Storage,
     };
-   //use openbrush::
-    
+    use openbrush::traits::String;
+
     #[ink(storage)]
     #[derive(Default, Storage)]
     pub struct Collection {
@@ -25,6 +27,8 @@ pub mod my_collection {
         metadata: metadata::Data,
         #[storage_field]
         enumerable: enumerable::Data,
+        #[storage_field]
+        collection: CollectionData,
     }
 
     impl CollectionTrait for Collection {}
@@ -46,6 +50,22 @@ pub mod my_collection {
                 symbol,
             );
             instance
+        }
+
+        #[ink(message)]
+        pub fn mint(&mut self) -> Result<(), CollectionError> {
+            let creator = self.env().caller();
+            if let Some(token_id) = self.collection.token_id.checked_add(1) {
+                self.collection.token_id = token_id;
+                if psp34::Internal::_mint_to(self, creator, Id::U64(self.collection.token_id))
+                    .is_err()
+                {
+                    return Err(CollectionError::CannotMint);
+                }
+                return Ok(());
+            } else {
+                return Err(CollectionError::CannotIncrease);
+            }
         }
     }
 }

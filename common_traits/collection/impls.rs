@@ -1,43 +1,23 @@
-use ink::prelude::vec::Vec;
+use openbrush::traits::{Storage, String};
 
-use openbrush::{
-    modifiers,
-    traits::{
-        AccountId,
-        Storage,
-        String,
-    },
-};
-
-use openbrush::contracts::{
-    ownable,
-    ownable::only_owner,
-    psp34,
-    psp34::{
-        extensions::metadata::{
-            Id,
-            PSP34MetadataImpl,
-        },
-        PSP34Error,
-        PSP34Impl,
-    },
-};
 use crate::collection::types::CollectionError;
-
-
+use openbrush::contracts::psp34;
+use openbrush::{
+    contracts::ownable::*,
+    contracts::psp34::extensions::{enumerable::*, metadata::*},
+};
 #[openbrush::trait_definition]
 pub trait CollectionTrait:
     Storage<psp34::Data>
-    //+ Storage<ownable::Data>
-    // + Storage<metadata::Data>
-    //+ PSP34Impl
-    //+ PSP34MetadataImpl
-    //+ psp34::extensions::metadata::Internal
+    + Storage<ownable::Data>
+    + Storage<metadata::Data>
+    + psp34::Internal
+    + psp34::extensions::metadata::Internal
+    + Storage<psp34::extensions::enumerable::Data>
+    + PSP34
 {
     #[ink(message)]
-    fn set_base_uri(&mut self, uri: String) -> Result<(), CollectionError>{
+    fn set_base_uri(&mut self, uri: String) -> Result<(), CollectionError> {
         Ok(())
-    
     }
-
 }

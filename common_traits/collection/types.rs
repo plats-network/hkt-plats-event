@@ -1,11 +1,11 @@
 
-use openbrush::contracts::psp34::Id;
-use openbrush::traits::{
-    AccountId,
-    Balance,
-    String,
-};
 
+#[derive(Default, Debug)]
+#[openbrush::storage_item]
+pub struct CollectionData {
+    pub token_id: u64
+
+}
 
 
 #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -15,4 +15,5 @@ pub enum CollectionError {
     CannotMint,
     NotOwner,
     NotExists,
+    CannotIncrease
 }

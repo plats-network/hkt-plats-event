@@ -1,4 +1,4 @@
-use openbrush::contracts::psp34::Id;
+
 use openbrush::traits::{AccountId, Balance, String, Hash};
 use ink::prelude::vec::Vec;
 
@@ -14,7 +14,6 @@ use openbrush::storage::Mapping;
 pub struct CollectionInfo {
     pub name: String,
     pub uri: String,
-    pub mint_to: Option<AccountId>,
     pub creator: Option<AccountId>,
     pub nft_collection_address:Option<AccountId>
 }
@@ -47,5 +46,6 @@ pub enum CollectionFactoryError {
     CannotMint,
     ClaimNFTError,
     NotApproved,
-    CannotTransfer
+    CannotTransfer,
+    CollectionNotExist
 }
