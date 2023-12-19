@@ -66,6 +66,7 @@ mod nft_collection_factory {
             &mut self,
             name: String,
             symbol: String,
+            description: String,
             base_uri: String,
         ) -> Result<(), CollectionFactoryError> {
             let creator = Self::env().caller();
@@ -96,6 +97,7 @@ mod nft_collection_factory {
             let new_collection = CollectionInfo {
                 name,
                 uri: base_uri,
+                description,
                 nft_collection_address: Some(contract_account),
                 creator: Some(creator),
             };

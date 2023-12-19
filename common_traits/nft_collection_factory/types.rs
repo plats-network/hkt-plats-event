@@ -14,8 +14,10 @@ use openbrush::storage::Mapping;
 pub struct CollectionInfo {
     pub name: String,
     pub uri: String,
+    pub description: String,
     pub creator: Option<AccountId>,
-    pub nft_collection_address:Option<AccountId>
+    pub nft_collection_address:Option<AccountId>,
+
 }
 
 #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]

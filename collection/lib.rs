@@ -53,7 +53,7 @@ pub mod my_collection {
         }
 
         #[ink(message)]
-        pub fn mint(&mut self) -> Result<(), CollectionError> {
+        pub fn mint(&mut self, uri: String) -> Result<(), CollectionError> {
             let creator = self.env().caller();
             if let Some(token_id) = self.collection.token_id.checked_add(1) {
                 self.collection.token_id = token_id;
@@ -62,6 +62,11 @@ pub mod my_collection {
                 {
                     return Err(CollectionError::CannotMint);
                 }
+                self._set_attribute(
+                    Id::U64(token_id),
+                    String::from("uri"),
+                    uri,
+                );
                 return Ok(());
             } else {
                 return Err(CollectionError::CannotIncrease);
